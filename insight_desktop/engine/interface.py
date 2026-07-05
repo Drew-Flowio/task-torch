@@ -11,20 +11,25 @@ without touching `ui/` at all.
 from __future__ import annotations
 
 import logging
+import shutil
 import threading
 import time
+import uuid
 from pathlib import Path
 from typing import Callable
 
 from config.loader import AppConfig
 from engine.audio_recorder import AudioRecorder
 from engine.llm_adapter import LlmAdapter, LlmConfig
-from engine.mock_adapters import MockLlmAdapter, MockSttAdapter, MockTtsAdapter
+from engine.mock_adapters import MockLlmAdapter, MockSttAdapter, MockTtsAdapter, MockVisionAdapter
 from engine.prompt_builder import PromptBuilder
 from engine.session import SessionManager
+from engine.speech_text import prepare_for_speech
 from engine.stt_adapter import SttAdapter, SttConfig
 from engine.tts_adapter import TtsAdapter, TtsConfig
 from engine.types import AppState, SessionStateView, TurnResult
+from engine.vision_adapter import VisionAdapter, VisionConfig
+from engine.visual_context import VisualContext
 from storage.models import MemoryFact, Message, PromptVersion
 from storage.repository import Repository
 
@@ -38,13 +43,17 @@ class InsightEngine:
         self._session = SessionManager(self._repo, config.interaction.history_turns_in_prompt)
         self._prompt_builder = PromptBuilder()
 
-        self._llm, self._stt, self._tts = self._build_adapters(config)
+        self._llm, self._stt, self._tts, self._vision = self._build_adapters(config)
 
         self._recorder = AudioRecorder(
             sample_rate=config.audio.sample_rate,
             device=config.audio.input_device,
             max_seconds=config.audio.max_recording_seconds,
         )
+
+        self._visual_context: VisualContext | None = None
+        self._uploads_dir = Path(config.resolve("insight_desktop/data/uploads"))
+        self._uploads_dir.mkdir(parents=True, exist_ok=True)
 
         self._cancel_event = threading.Event()
         self._busy_lock = threading.Lock()
@@ -58,7 +67,7 @@ class InsightEngine:
     def _build_adapters(self, config: AppConfig):
         if config.mock_mode:
             logger.info("Running in MOCK MODE - no real models are loaded.")
-            return MockLlmAdapter(), MockSttAdapter(), MockTtsAdapter()
+            return MockLlmAdapter(), MockSttAdapter(), MockTtsAdapter(), MockVisionAdapter()
 
         logger.info("Loading LLM: %s", config.models.llm_model_path)
         llm = LlmAdapter(LlmConfig(
@@ -78,8 +87,33 @@ class InsightEngine:
         logger.info("Loading TTS: %s", config.models.tts_voice_model_path)
         tts = TtsAdapter(TtsConfig(
             voice_model_path=config.resolve(config.models.tts_voice_model_path),
+            length_scale=config.models.tts_length_scale,
+            noise_scale=config.models.tts_noise_scale,
+            noise_w=config.models.tts_noise_w,
         ))
-        return llm, stt, tts
+        vision = self._try_build_vision(config)
+        return llm, stt, tts, vision
+
+    def _try_build_vision(self, config: AppConfig):
+        if not config.models.vision_enabled:
+            logger.info("Vision disabled in config.")
+            return None
+        mtmd = config.resolve(config.models.mtmd_cli_path)
+        model = config.resolve(config.models.vision_model_path)
+        mmproj = config.resolve(config.models.vision_mmproj_path)
+        missing = [p for p in (mtmd, model, mmproj) if not Path(p).exists()]
+        if missing:
+            logger.warning("Vision models missing (%s) — photo features disabled.", ", ".join(missing))
+            return None
+        logger.info("Vision ready: %s", config.models.vision_model_path)
+        return VisionAdapter(VisionConfig(
+            mtmd_cli_path=mtmd,
+            model_path=model,
+            mmproj_path=mmproj,
+            n_predict=config.models.vision_n_predict,
+            temperature=config.models.vision_temperature,
+            gpu_layers=config.models.vision_gpu_layers,
+        ))
 
     def _ensure_active_prompt_version(self) -> None:
         if self._repo.get_active_prompt_version() is not None:
@@ -99,6 +133,24 @@ class InsightEngine:
         on_state: Callable[[AppState], None] | None = None,
     ) -> TurnResult:
         result = self._run_turn(text, source="text", transcript=None, on_token=on_token, on_state=on_state)
+        if on_state:
+            on_state(AppState.IDLE)
+        return result
+
+    def greet_after_photo(
+        self,
+        on_token: Callable[[str], None] | None = None,
+        on_state: Callable[[AppState], None] | None = None,
+    ) -> TurnResult:
+        """Brief assistant opener after a photo attach — not shown as a user message."""
+        prompt = (
+            "The user just attached a photo. In 1-2 casual sentences, say what you see "
+            "and ask what they want to know about it."
+        )
+        result = self._run_turn(
+            prompt, source="photo", transcript=None,
+            on_token=on_token, on_state=on_state, record_user=False,
+        )
         if on_state:
             on_state(AppState.IDLE)
         return result
@@ -156,7 +208,7 @@ class InsightEngine:
         if not result.cancelled and result.reply_text and not self._cancel_event.is_set():
             if on_state:
                 on_state(AppState.SPEAKING)
-            self._tts.speak(result.reply_text)
+            self._tts.speak(prepare_for_speech(result.reply_text))
 
         if on_state:
             on_state(AppState.IDLE)
@@ -167,9 +219,58 @@ class InsightEngine:
         demand without re-running the LLM."""
         if on_state:
             on_state(AppState.SPEAKING)
-        self._tts.speak(text)
+        self._tts.speak(prepare_for_speech(text))
         if on_state:
             on_state(AppState.IDLE)
+
+    # ------------------------------------------------------------------
+    # Photos / visual context
+    # ------------------------------------------------------------------
+
+    def get_visual_context(self) -> VisualContext | None:
+        return self._visual_context
+
+    def clear_visual_context(self) -> None:
+        self._visual_context = None
+
+    def attach_photo(
+        self,
+        source_path: str,
+        on_state: Callable[[AppState], None] | None = None,
+    ) -> VisualContext:
+        """Copy (if needed), caption with the vision model, and keep the
+        result as active context for follow-up questions."""
+        if self._vision is None:
+            raise RuntimeError(
+                "Photo analysis is not available. Run poc/setup_vision_mac.sh "
+                "or enable mock_mode for UI testing."
+            )
+
+        with self._busy_lock:
+            self._cancel_event.clear()
+            if on_state:
+                on_state(AppState.ANALYZING)
+
+            stored_path = self._persist_photo(source_path)
+            caption = self._vision.describe_image(stored_path)
+            self._visual_context = VisualContext(image_path=stored_path, caption=caption)
+            logger.info("Photo attached: %s", caption[:120])
+
+            if on_state:
+                on_state(AppState.IDLE)
+            return self._visual_context
+
+    def record_photo_message(self, caption: str) -> None:
+        self._session.record_user_message(f"📷 Photo attached\n{caption}", source="photo")
+
+    def _persist_photo(self, source_path: str) -> str:
+        source = Path(source_path)
+        uploads_resolved = self._uploads_dir.resolve()
+        if source.resolve().parent == uploads_resolved:
+            return str(source)
+        dest = self._uploads_dir / f"photo-{uuid.uuid4().hex}{source.suffix.lower() or '.jpg'}"
+        shutil.copy2(source, dest)
+        return str(dest)
 
     # ------------------------------------------------------------------
     # Cancellation - one entry point for the UI's Stop/Cancel button,
@@ -194,23 +295,28 @@ class InsightEngine:
         transcript: str | None,
         on_token: Callable[[str], None] | None,
         on_state: Callable[[AppState], None] | None,
+        record_user: bool = True,
     ) -> TurnResult:
         with self._busy_lock:
             self._cancel_event.clear()
             start = time.monotonic()
 
-            # Assemble prompt context from history *before* this turn's
-            # own user message is recorded, so it isn't double-counted.
             active_prompt = self._repo.get_active_prompt_version()
             personality_prompt = active_prompt.content if active_prompt else ""
             memory_facts = [f.text for f in self._repo.list_memory_facts()]
             history_messages, summary_note = self._session.get_prompt_history_messages()
 
             messages, debug_text = self._prompt_builder.build(
-                personality_prompt, memory_facts, history_messages, summary_note, utterance,
+                personality_prompt,
+                memory_facts,
+                history_messages,
+                summary_note,
+                utterance,
+                visual_context=self._visual_context,
             )
 
-            self._session.record_user_message(utterance, source=source)
+            if record_user:
+                self._session.record_user_message(utterance, source=source)
 
             if on_state:
                 on_state(AppState.THINKING)
@@ -237,6 +343,7 @@ class InsightEngine:
                 latency_ms=latency_ms,
                 prompt_version_id=active_prompt.id if active_prompt else None,
                 assembled_prompt_debug=debug_text,
+                image_caption=self._visual_context.caption if self._visual_context else None,
             )
 
     # ------------------------------------------------------------------
@@ -283,6 +390,7 @@ class InsightEngine:
         Nothing is ever deleted from SQLite by this call; prior sessions
         are simply marked ended and left in place."""
         self._session.reset(clear_memory_facts=(scope == "all"))
+        self._visual_context = None
 
     def get_session_state(self) -> SessionStateView:
         active_prompt = self._repo.get_active_prompt_version()

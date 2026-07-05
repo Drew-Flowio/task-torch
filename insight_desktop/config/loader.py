@@ -10,7 +10,6 @@ from pathlib import Path
 
 import yaml
 
-# insight_desktop/config/loader.py -> parents[1] = insight_desktop/ -> parents[2] = repo root
 REPO_ROOT = Path(__file__).resolve().parents[2]
 INSIGHT_DESKTOP_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG_PATH = INSIGHT_DESKTOP_ROOT / "config" / "config.yaml"
@@ -28,6 +27,16 @@ class ModelsConfig:
     whisper_model_path: str
     whisper_threads: int
     tts_voice_model_path: str
+    tts_length_scale: float = 0.91
+    tts_noise_scale: float = 0.78
+    tts_noise_w: float = 0.88
+    vision_enabled: bool = True
+    mtmd_cli_path: str = ""
+    vision_model_path: str = ""
+    vision_mmproj_path: str = ""
+    vision_n_predict: int = 128
+    vision_temperature: float = 0.1
+    vision_gpu_layers: int = 0
 
 
 @dataclass(frozen=True)
@@ -73,8 +82,6 @@ class AppConfig:
     repo_root: Path = field(default=REPO_ROOT)
 
     def resolve(self, relative_path: str) -> str:
-        """Resolves a config path (relative to the repo root) to an
-        absolute path string."""
         p = Path(relative_path)
         return str(p if p.is_absolute() else self.repo_root / p)
 
@@ -83,9 +90,33 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> AppConfig:
     with open(path, "r", encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
+    models_raw = raw["models"]
+    models = ModelsConfig(
+        llm_model_path=models_raw["llm_model_path"],
+        llm_n_ctx=models_raw["llm_n_ctx"],
+        llm_n_threads=models_raw["llm_n_threads"],
+        llm_max_tokens=models_raw["llm_max_tokens"],
+        llm_temperature=models_raw["llm_temperature"],
+        llm_top_p=models_raw["llm_top_p"],
+        whisper_cli_path=models_raw["whisper_cli_path"],
+        whisper_model_path=models_raw["whisper_model_path"],
+        whisper_threads=models_raw["whisper_threads"],
+        tts_voice_model_path=models_raw["tts_voice_model_path"],
+        tts_length_scale=float(models_raw.get("tts_length_scale", 0.91)),
+        tts_noise_scale=float(models_raw.get("tts_noise_scale", 0.78)),
+        tts_noise_w=float(models_raw.get("tts_noise_w", 0.88)),
+        vision_enabled=bool(models_raw.get("vision_enabled", True)),
+        mtmd_cli_path=models_raw.get("mtmd_cli_path", ""),
+        vision_model_path=models_raw.get("vision_model_path", ""),
+        vision_mmproj_path=models_raw.get("vision_mmproj_path", ""),
+        vision_n_predict=int(models_raw.get("vision_n_predict", 128)),
+        vision_temperature=float(models_raw.get("vision_temperature", 0.1)),
+        vision_gpu_layers=int(models_raw.get("vision_gpu_layers", 0)),
+    )
+
     return AppConfig(
         mock_mode=bool(raw["engine"]["mock_mode"]),
-        models=ModelsConfig(**raw["models"]),
+        models=models,
         audio=AudioConfig(**raw["audio"]),
         interaction=InteractionConfig(**raw["interaction"]),
         storage=StorageConfig(**raw["storage"]),

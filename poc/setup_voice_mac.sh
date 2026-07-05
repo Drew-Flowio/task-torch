@@ -9,7 +9,8 @@ cd "$(dirname "$0")/.."
 
 WHISPER_MODEL="base.en"
 PIPER_VOICE_REPO="rhasspy/piper-voices"
-PIPER_VOICE_PATH="en/en_US/lessac/medium/en_US-lessac-medium.onnx"
+PIPER_VOICE_PATH="en/en_US/ryan/medium/en_US-ryan-medium.onnx"
+PIPER_VOICE_FALLBACK="en/en_US/lessac/medium/en_US-lessac-medium.onnx"
 
 echo "== Cloning whisper.cpp (for offline speech-to-text) =="
 mkdir -p vendor
@@ -34,6 +35,10 @@ echo "== Downloading Piper voice: ${PIPER_VOICE_PATH} =="
 mkdir -p models/piper-voices
 hf download "${PIPER_VOICE_REPO}" "${PIPER_VOICE_PATH}" --local-dir ./models/piper-voices
 hf download "${PIPER_VOICE_REPO}" "${PIPER_VOICE_PATH}.json" --local-dir ./models/piper-voices
+
+echo "== Downloading fallback Piper voice: ${PIPER_VOICE_FALLBACK} =="
+hf download "${PIPER_VOICE_REPO}" "${PIPER_VOICE_FALLBACK}" --local-dir ./models/piper-voices
+hf download "${PIPER_VOICE_REPO}" "${PIPER_VOICE_FALLBACK}.json" --local-dir ./models/piper-voices
 
 echo "== Done. Try the full voice loop: =="
 echo "  source .venv/bin/activate"

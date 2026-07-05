@@ -16,11 +16,15 @@ from typing import Protocol
 import numpy as np
 import sounddevice as sd
 from piper import PiperVoice
+from piper.config import SynthesisConfig
 
 
 @dataclass(frozen=True)
 class TtsConfig:
-    voice_model_path: str  # the matching .onnx.json must sit alongside this file
+    voice_model_path: str
+    length_scale: float = 0.91
+    noise_scale: float = 0.78
+    noise_w: float = 0.88
 
 
 class TtsAdapterProtocol(Protocol):
@@ -38,10 +42,18 @@ class TtsAdapter:
         self._voice = PiperVoice.load(config.voice_model_path)
         self._sample_rate = self._voice.config.sample_rate
         self._stop_event = threading.Event()
+        self._syn_config = SynthesisConfig(
+            length_scale=config.length_scale,
+            noise_scale=config.noise_scale,
+            noise_w=config.noise_w,
+        )
 
     def speak(self, text: str) -> None:
         self._stop_event.clear()
-        chunks = [chunk.audio_int16_array for chunk in self._voice.synthesize(text)]
+        chunks = [
+            chunk.audio_int16_array
+            for chunk in self._voice.synthesize(text, self._syn_config)
+        ]
         if not chunks:
             return
         audio = np.concatenate(chunks, axis=0)

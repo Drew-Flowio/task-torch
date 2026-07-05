@@ -1,13 +1,8 @@
-"""Assembles the exact message list sent to the LLM for a single turn.
-
-Kept deliberately dumb and inspectable: given the personality prompt,
-the long-term memory facts, the recent chat history, and the current
-utterance, it produces (a) the `messages` list `llm_adapter.generate()`
-needs, and (b) a plain-text rendering of that same assembly for the
-Inspector panel's "why did it answer that way" view.
-"""
+"""Assembles the exact message list sent to the LLM for a single turn."""
 
 from __future__ import annotations
+
+from engine.visual_context import VisualContext
 
 
 class PromptBuilder:
@@ -18,12 +13,16 @@ class PromptBuilder:
         history_messages: list[dict],
         history_summary_note: str | None,
         current_utterance: str,
+        visual_context: VisualContext | None = None,
     ) -> tuple[list[dict], str]:
         system_content = personality_prompt.strip()
 
         if memory_facts:
             facts_block = "\n".join(f"- {fact}" for fact in memory_facts)
             system_content += f"\n\nThings you know about the user (long-term memory):\n{facts_block}"
+
+        if visual_context is not None:
+            system_content += f"\n\n{visual_context.prompt_block()}"
 
         if history_summary_note:
             system_content += f"\n\n{history_summary_note}"

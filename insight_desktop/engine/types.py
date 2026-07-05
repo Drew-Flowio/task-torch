@@ -17,6 +17,7 @@ class AppState(str, Enum):
     IDLE = "idle"
     LISTENING = "listening"
     TRANSCRIBING = "transcribing"
+    ANALYZING = "analyzing"
     THINKING = "thinking"
     SPEAKING = "speaking"
     ERROR = "error"
@@ -44,4 +45,5 @@ class TurnResult:
     cancelled: bool
     latency_ms: int
     prompt_version_id: str | None
-    assembled_prompt_debug: str = field(default="")  # exact messages sent to the LLM, for the inspector
+    assembled_prompt_debug: str = field(default="")
+    image_caption: str | None = None

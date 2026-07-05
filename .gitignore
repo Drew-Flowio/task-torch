@@ -11,8 +11,11 @@ __pycache__/
 
 # Insight desktop app's local data (SQLite DB, logs) - personal/local only
 insight_desktop/data/*.db
+insight_desktop/data/uploads/*
+!insight_desktop/data/uploads/.gitkeep
 insight_desktop/logs/*.log*
 insight_desktop/logs/*.txt
+insight_desktop/logs/.insight-terminal-launch.sh
 insight_desktop/tools/preview.png
 
 # Insight.app build artifacts (rebuilt on demand via packaging/build_app.sh)

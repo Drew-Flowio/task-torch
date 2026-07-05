@@ -19,10 +19,19 @@ import time
 from typing import Callable
 
 _CANNED_REPLIES = [
-    "Here's a simple next step: check the obvious thing first, then try it again.",
-    "That's a reasonable question. Start by taking a closer look, then go from there.",
-    "Good news: this is usually a quick fix. Try the simplest option first.",
+    "Alright, from what I'm seeing — start with the obvious check first, then we'll go from there.",
+    "Yeah, that's a fair question. What's the goal here — fix it, or just figure out if it's safe?",
+    "Okay cool, I'd poke at the simple stuff before tearing anything apart.",
 ]
+
+
+class MockVisionAdapter:
+    def describe_image(self, image_path: str) -> str:  # noqa: ARG002
+        time.sleep(0.5)
+        return (
+            "A stainless steel electric kettle on a kitchen counter. "
+            "The power cord is plugged in and there's no visible damage."
+        )
 
 
 class MockLlmAdapter:

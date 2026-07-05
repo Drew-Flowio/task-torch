@@ -66,9 +66,37 @@ mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources"
 
 cp "$ICNS_PATH" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
 
-# Bake the repo path into the launcher template, then install it as the
-# bundle executable.
-sed "s|__REPO_ROOT__|$REPO_ROOT|g" "$LAUNCHER_TEMPLATE" > "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+# Bake repo + Python paths into the launcher so double-click never has to
+# read .venv/pyvenv.cfg at runtime (macOS blocks that for Desktop folders).
+VENV_CFG="$REPO_ROOT/.venv/pyvenv.cfg"
+if [ ! -f "$VENV_CFG" ]; then
+    echo "ERROR: $VENV_CFG not found. Create the venv first (see insight_desktop/README.md)."
+    exit 1
+fi
+
+PY_BIN=$(grep '^executable = ' "$VENV_CFG" | sed 's/^executable = //')
+PY_VER=$(grep '^version = ' "$VENV_CFG" | sed 's/^version = //')
+PY_MAJOR=${PY_VER%%.*}
+PY_MINOR=$(echo "$PY_VER" | cut -d. -f2)
+SITE_PACKAGES="$REPO_ROOT/.venv/lib/python${PY_MAJOR}.${PY_MINOR}/site-packages"
+
+if [ ! -x "$PY_BIN" ] || [ ! -d "$SITE_PACKAGES" ]; then
+    echo "ERROR: Python ($PY_BIN) or site-packages ($SITE_PACKAGES) missing."
+    exit 1
+fi
+
+escape_sed() {
+    printf '%s' "$1" | sed 's/[\/&]/\\&/g'
+}
+
+ESC_REPO=$(escape_sed "$REPO_ROOT")
+ESC_PY=$(escape_sed "$PY_BIN")
+ESC_SITE=$(escape_sed "$SITE_PACKAGES")
+
+sed -e "s|__REPO_ROOT__|${ESC_REPO}|g" \
+    -e "s|__PYTHON_BIN__|${ESC_PY}|g" \
+    -e "s|__SITE_PACKAGES__|${ESC_SITE}|g" \
+    "$LAUNCHER_TEMPLATE" > "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 chmod +x "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
 cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
@@ -123,8 +151,7 @@ echo ""
 echo "Done. Double-click $DESKTOP_APP to launch $APP_NAME."
 if [[ "$REPO_ROOT" == *"/Desktop"* ]]; then
     echo ""
-    echo "Note: your project lives on the Desktop. macOS may block double-clicked"
-    echo "apps from reading Desktop folders — the launcher will open a small Terminal"
-    echo "window to start Insight with the right permissions."
-    echo "For a cleaner launch, move the project to ~/Projects and rebuild."
+    echo "Note: project is on the Desktop. Double-clicking Insight.app will open a"
+    echo "Terminal tab to start the app (macOS blocks Desktop folder access otherwise)."
+    echo "For a cleaner double-click launch, move the repo to ~/Projects and rebuild."
 fi

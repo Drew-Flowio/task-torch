@@ -4,9 +4,11 @@ empty state and polished message bubbles.
 
 from __future__ import annotations
 
+import base64
 import html
 
-from PySide6.QtGui import QTextCursor
+from PySide6.QtCore import QBuffer, QByteArray, Qt
+from PySide6.QtGui import QImage, QTextCursor
 from PySide6.QtWidgets import QTextEdit
 
 from storage.models import Message
@@ -30,20 +32,41 @@ def _empty_state(name: str) -> str:
     Talk to {safe_name}
   </div>
   <div style="font-size:13px; line-height:1.5; max-width:320px; margin:0 auto;">
-    Type a message below, or press the mic button to speak.<br>
+    Type a message, press the mic to talk, or attach a photo.<br>
     Everything stays on this machine — fully offline.
   </div>
 </div>
 """
 
 
-def _user_bubble(text: str) -> str:
+def _photo_thumb_html(image_path: str) -> str:
+    image = QImage(image_path)
+    if image.isNull():
+        return ""
+    scaled = image.scaled(
+        220, 220,
+        Qt.AspectRatioMode.KeepAspectRatio,
+        Qt.TransformationMode.SmoothTransformation,
+    )
+    byte_array = QByteArray()
+    qbuffer = QBuffer(byte_array)
+    qbuffer.open(QBuffer.OpenModeFlag.WriteOnly)
+    scaled.save(qbuffer, b"JPG", 85)
+    encoded = base64.b64encode(byte_array.data()).decode("ascii")
+    return (
+        f'<br><img src="data:image/jpeg;base64,{encoded}" '
+        'style="max-width:220px; border-radius:10px; margin-top:8px; border:1px solid #e5e7eb;">'
+    )
+
+
+def _user_bubble(text: str, image_path: str | None = None) -> str:
+    photo_html = _photo_thumb_html(image_path) if image_path else ""
     return (
         '<table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin:4px 0 10px 0;">'
         '<tr><td width="18%"></td><td align="right">'
         f'<span style="background:{theme.USER_BUBBLE}; color:{theme.USER_BUBBLE_TEXT}; '
         'padding:11px 16px; border-radius:18px 18px 4px 18px; '
-        f'display:inline-block; max-width:72%; font-size:13px;">{text}</span>'
+        f'display:inline-block; max-width:72%; font-size:13px;">{text}{photo_html}</span>'
         '</td></tr></table>'
     )
 
@@ -91,28 +114,34 @@ class ChatTranscript(QTextEdit):
         self.setFrameStyle(0)
         self.setStyleSheet("QTextEdit { background: transparent; border: none; padding: 4px 2px; }")
         self._assistant_name = assistant_name
-        self._messages: list[list[str]] = []
+        self._messages: list[tuple[str, str, str | None]] = []
         self._show_typing = False
 
     def load_history(self, messages: list[Message]) -> None:
-        self._messages = [[m.role, m.content] for m in messages if m.role in ("user", "assistant")]
+        self._messages = [
+            (m.role, m.content, None) for m in messages if m.role in ("user", "assistant")
+        ]
         self._show_typing = False
         self._render()
 
-    def add_user_message(self, text: str) -> None:
-        self._messages.append(["user", text])
+    def add_user_message(self, text: str, image_path: str | None = None) -> None:
+        self._messages.append(("user", text, image_path))
         self._show_typing = False
         self._render()
+
+    def add_user_photo_message(self, caption: str, image_path: str) -> None:
+        self.add_user_message(f"📷 Photo attached\n{caption}", image_path=image_path)
 
     def start_assistant_message(self) -> None:
-        self._messages.append(["assistant", ""])
+        self._messages.append(("assistant", "", None))
         self._show_typing = True
         self._render()
 
     def append_to_last_assistant(self, piece: str) -> None:
         if self._messages and self._messages[-1][0] == "assistant":
             self._show_typing = False
-            self._messages[-1][1] += piece
+            role, text, image = self._messages[-1]
+            self._messages[-1] = (role, text + piece, image)
             self._render()
 
     def finalize_last_assistant(self, final_text: str, cancelled: bool = False) -> None:
@@ -122,7 +151,8 @@ class ChatTranscript(QTextEdit):
                 f'  <span style="color:{theme.MUTED_LIGHT}; font-size:11px;">(stopped)</span>'
                 if cancelled else ""
             )
-            self._messages[-1][1] = final_text
+            role, _, image = self._messages[-1]
+            self._messages[-1] = (role, final_text, image)
             self._render(final_suffix=suffix)
 
     def remove_last_assistant_if_empty(self) -> None:
@@ -144,13 +174,13 @@ class ChatTranscript(QTextEdit):
         parts: list[str] = []
         last_index = len(self._messages) - 1
 
-        for i, (role, text) in enumerate(self._messages):
+        for i, (role, text, image_path) in enumerate(self._messages):
             safe_text = html.escape(text).replace("\n", "<br>")
             if i == last_index and role == "assistant" and not self._show_typing:
                 safe_text += final_suffix
 
             if role == "user":
-                parts.append(_user_bubble(safe_text))
+                parts.append(_user_bubble(safe_text, image_path))
             elif text or (i == last_index and self._show_typing):
                 if i == last_index and self._show_typing and not text:
                     parts.append(_typing_indicator(self._assistant_name))

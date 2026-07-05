@@ -45,6 +45,7 @@ STATUS_COLORS = {
     "idle": MUTED_LIGHT,
     "listening": DANGER,
     "transcribing": WARNING,
+    "analyzing": ACCENT,
     "thinking": WARNING,
     "speaking": SUCCESS,
     "error": DANGER,
@@ -54,6 +55,7 @@ STATUS_LABELS = {
     "idle": "Ready",
     "listening": "Listening…",
     "transcribing": "Transcribing…",
+    "analyzing": "Analyzing photo…",
     "thinking": "Thinking…",
     "speaking": "Speaking…",
     "error": "Error",
@@ -111,6 +113,14 @@ QWidget#inputBar {{
 }}
 QWidget#inputBar:focus-within {{
     border: 1px solid {ACCENT_MUTED};
+}}
+QLabel#photoContextChip {{
+    background: {ACCENT_SOFT};
+    color: {INK_SECONDARY};
+    border: 1px solid {ACCENT_MUTED};
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 12px;
 }}
 
 /* ---- Buttons ---- */

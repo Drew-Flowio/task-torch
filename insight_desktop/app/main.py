@@ -17,8 +17,9 @@ _INSIGHT_DESKTOP_ROOT = Path(__file__).resolve().parents[1]
 if str(_INSIGHT_DESKTOP_ROOT) not in sys.path:
     sys.path.insert(0, str(_INSIGHT_DESKTOP_ROOT))
 
+from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtGui import QIcon  # noqa: E402
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtWidgets import QApplication, QSplashScreen  # noqa: E402
 
 from app.logging_setup import setup_logging  # noqa: E402
 from config.loader import load_config  # noqa: E402
@@ -38,13 +39,25 @@ def main() -> int:
     app.setApplicationDisplayName(config.interaction.assistant_name)
     app.setStyleSheet(build_stylesheet())
 
-    if _ICON_PATH.exists():
-        icon = QIcon(str(_ICON_PATH))
+    icon = QIcon(str(_ICON_PATH)) if _ICON_PATH.exists() else QIcon()
+    if not icon.isNull():
         app.setWindowIcon(icon)
+
+    splash = QSplashScreen(icon.pixmap(128, 128) if not icon.isNull() else None)
+    splash.showMessage(
+        "Loading models…",
+        Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter,
+        Qt.GlobalColor.white,
+    )
+    splash.show()
+    app.processEvents()
 
     engine = InsightEngine(config)
     window = MainWindow(engine, assistant_name=config.interaction.assistant_name)
     window.show()
+    splash.finish(window)
+    window.raise_()
+    window.activateWindow()
 
     exit_code = app.exec()
     engine.shutdown()

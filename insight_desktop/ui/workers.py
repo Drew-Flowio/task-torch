@@ -46,6 +46,42 @@ class TextMessageWorker(BaseEngineWorker):
             self.failed.emit(str(exc))
 
 
+class PhotoGreetingWorker(BaseEngineWorker):
+    def __init__(self, engine: InsightEngine):
+        super().__init__()
+        self._engine = engine
+
+    def run(self) -> None:
+        try:
+            result = self._engine.greet_after_photo(
+                on_token=self._emit_token, on_state=self._emit_state,
+            )
+            self.finished_ok.emit(result)
+        except Exception as exc:  # noqa: BLE001
+            self.failed.emit(str(exc))
+
+
+class PhotoAttachWorker(BaseEngineWorker):
+    """Runs `InsightEngine.attach_photo()` on a background thread."""
+
+    photo_ready = Signal(str, str)  # image_path, caption
+
+    def __init__(self, engine: InsightEngine, image_path: str):
+        super().__init__()
+        self._engine = engine
+        self._image_path = image_path
+
+    def run(self) -> None:
+        try:
+            ctx = self._engine.attach_photo(
+                self._image_path, on_state=lambda s: self._emit_state(s),
+            )
+            self.photo_ready.emit(ctx.image_path, ctx.caption)
+            self.finished_ok.emit(None)
+        except Exception as exc:  # noqa: BLE001
+            self.failed.emit(str(exc))
+
+
 class VoiceUtteranceWorker(BaseEngineWorker):
     """Runs `InsightEngine.send_voice_utterance()` on a background thread
     (transcription -> LLM -> TTS playback, all off the UI thread)."""

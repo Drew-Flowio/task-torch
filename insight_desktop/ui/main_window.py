@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMainWindow,
+    QMenu,
     QPushButton,
     QSplitter,
     QVBoxLayout,
@@ -23,7 +24,14 @@ from engine.types import AppState, TurnResult
 from ui.chat_widgets import ChatTranscript
 from ui.inspector_panel import InspectorPanel
 from ui import theme
-from ui.workers import BaseEngineWorker, TextMessageWorker, VoiceUtteranceWorker
+from ui.photo_dialog import PhotoDialog
+from ui.workers import (
+    BaseEngineWorker,
+    PhotoAttachWorker,
+    PhotoGreetingWorker,
+    TextMessageWorker,
+    VoiceUtteranceWorker,
+)
 
 logger = logging.getLogger("insight.ui")
 
@@ -48,6 +56,10 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self._transcript.load_history(self._engine.get_history())
         self._apply_state(AppState.IDLE)
+        self._refresh_photo_context()
+
+    def _uploads_dir(self) -> Path:
+        return Path(__file__).resolve().parents[1] / "data" / "uploads"
 
     def _build_ui(self) -> None:
         central = QWidget()
@@ -71,6 +83,12 @@ class MainWindow(QMainWindow):
         self._transcript = ChatTranscript(assistant_name=self._assistant_name)
         chat_layout.addWidget(self._transcript, stretch=1)
 
+        self._photo_context = QLabel()
+        self._photo_context.setObjectName("photoContextChip")
+        self._photo_context.setWordWrap(True)
+        self._photo_context.hide()
+        chat_layout.addWidget(self._photo_context)
+
         input_bar = QWidget()
         input_bar.setObjectName("inputBar")
         input_row = QHBoxLayout(input_bar)
@@ -81,6 +99,12 @@ class MainWindow(QMainWindow):
         self._input_box.setPlaceholderText(f"Ask {self._assistant_name} anything…")
         self._input_box.returnPressed.connect(self._on_send_clicked)
         input_row.addWidget(self._input_box, stretch=1)
+
+        self._photo_btn = QPushButton("📷")
+        self._photo_btn.setObjectName("ghostButton")
+        self._photo_btn.setToolTip("Add or take a photo")
+        self._photo_btn.clicked.connect(self._on_photo_menu)
+        input_row.addWidget(self._photo_btn)
 
         self._mic_btn = QPushButton("●")
         self._mic_btn.setObjectName("micButton")
@@ -168,6 +192,60 @@ class MainWindow(QMainWindow):
 
         return header
 
+    def _on_photo_menu(self) -> None:
+        if self._current_state != AppState.IDLE:
+            return
+        menu = QMenu(self)
+        menu.addAction("Choose photo…", self._choose_photo)
+        menu.addAction("Take photo…", self._take_photo)
+        if self._engine.get_visual_context() is not None:
+            menu.addSeparator()
+            menu.addAction("Clear photo context", self._clear_photo_context)
+        menu.exec(self._photo_btn.mapToGlobal(self._photo_btn.rect().bottomLeft()))
+
+    def _choose_photo(self) -> None:
+        dialog = PhotoDialog(self._uploads_dir(), parent=self)
+        dialog._stack.setCurrentIndex(0)
+        if dialog.exec() and dialog.selected_path():
+            self._analyze_photo(dialog.selected_path())
+
+    def _take_photo(self) -> None:
+        dialog = PhotoDialog(self._uploads_dir(), parent=self)
+        dialog._enter_camera_mode()
+        if dialog.exec() and dialog.selected_path():
+            self._analyze_photo(dialog.selected_path())
+
+    def _analyze_photo(self, image_path: str) -> None:
+        worker = PhotoAttachWorker(self._engine, image_path)
+        worker.state_changed.connect(self._on_engine_state_str)
+        worker.photo_ready.connect(self._on_photo_ready)
+        worker.failed.connect(self._on_turn_failed)
+        worker.finished.connect(lambda: setattr(self, "_worker", None))
+        self._worker = worker
+        worker.start()
+
+    def _on_photo_ready(self, image_path: str, caption: str) -> None:
+        self._engine.record_photo_message(caption)
+        self._transcript.add_user_photo_message(caption, image_path)
+        self._refresh_photo_context()
+        self._transcript.start_assistant_message()
+        worker = PhotoGreetingWorker(self._engine)
+        self._wire_worker(worker)
+        worker.start()
+
+    def _clear_photo_context(self) -> None:
+        self._engine.clear_visual_context()
+        self._refresh_photo_context()
+
+    def _refresh_photo_context(self) -> None:
+        ctx = self._engine.get_visual_context()
+        if ctx is None:
+            self._photo_context.hide()
+            return
+        preview = ctx.caption if len(ctx.caption) <= 140 else f"{ctx.caption[:137]}…"
+        self._photo_context.setText(f"📷 Active photo: {preview}")
+        self._photo_context.show()
+
     def _on_send_clicked(self) -> None:
         if self._current_state != AppState.IDLE:
             return
@@ -232,6 +310,7 @@ class MainWindow(QMainWindow):
 
     def _on_session_reset(self) -> None:
         self._transcript.clear_transcript()
+        self._refresh_photo_context()
 
     def _apply_state(self, state: AppState, status_override: str | None = None) -> None:
         self._current_state = state
@@ -248,6 +327,7 @@ class MainWindow(QMainWindow):
 
         self._send_btn.setEnabled(is_idle)
         self._input_box.setEnabled(is_idle)
+        self._photo_btn.setEnabled(is_idle)
         self._mic_btn.setEnabled(is_idle or is_listening)
         self._mic_btn.setText("■" if is_listening else "●")
         self._mic_btn.setToolTip("Stop recording and send" if is_listening else "Press to talk")
