@@ -1,0 +1,22 @@
+# Downloaded model weights (multi-GB, re-fetched via hf download / setup scripts)
+models/
+
+# Vendored llama.cpp source + build output (re-cloned/rebuilt via setup scripts)
+vendor/
+
+# Python virtual environment
+.venv/
+__pycache__/
+*.pyc
+
+# Insight desktop app's local data (SQLite DB, logs) - personal/local only
+insight_desktop/data/*.db
+insight_desktop/logs/*.log*
+insight_desktop/logs/*.txt
+insight_desktop/tools/preview.png
+
+# Insight.app build artifacts (rebuilt on demand via packaging/build_app.sh)
+insight_desktop/dist/
+
+# OS cruft
+.DS_Store

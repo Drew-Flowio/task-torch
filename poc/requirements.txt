@@ -1,0 +1,9 @@
+# Core inference runtime for the brain LLM.
+# On Mac (Apple Silicon), build with Metal for speed:
+#   CMAKE_ARGS="-DGGML_METAL=on" pip install llama-cpp-python
+# On Raspberry Pi OS (CPU only), a plain install is correct:
+#   pip install llama-cpp-python
+llama-cpp-python>=0.3.0
+
+# Used only to download GGUF files from Hugging Face during setup.
+huggingface_hub>=0.24.0

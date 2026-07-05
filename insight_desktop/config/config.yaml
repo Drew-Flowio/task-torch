@@ -1,0 +1,57 @@
+# Insight desktop app — human-editable config.
+#
+# Every path below is resolved relative to the repo root (the "Task Torch"
+# folder that contains this insight_desktop/ folder, plus poc/, models/,
+# vendor/, etc.) so this app reuses the models and tools already set up
+# for the headset PoC instead of duplicating multi-GB files.
+#
+# To swap models later (a faster/smaller LLM, a different voice, etc.),
+# edit the paths under `models:` — no code changes required anywhere in
+# engine/ or ui/.
+
+engine:
+  # If true, the app runs with canned/fake responses and no real models
+  # are loaded — useful for developing or testing the UI on a machine
+  # without the LLM/STT/TTS models set up, or for a quick smoke test.
+  mock_mode: false
+
+models:
+  llm_model_path: "models/Phi-3.5-mini-instruct-Q4_K_M.gguf"
+  llm_n_ctx: 4096
+  llm_n_threads: 8
+  llm_max_tokens: 200
+  llm_temperature: 0.4
+  llm_top_p: 0.9
+
+  whisper_cli_path: "vendor/whisper.cpp/build/bin/whisper-cli"
+  whisper_model_path: "vendor/whisper.cpp/models/ggml-base.en.bin"
+  whisper_threads: 8
+
+  tts_voice_model_path: "models/piper-voices/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
+
+audio:
+  sample_rate: 16000
+  max_recording_seconds: 20
+  input_device: null    # null = system default input device
+  output_device: null   # null = system default output device
+
+interaction:
+  assistant_name: "Insight"
+  # How many of the most recent turns are replayed verbatim into the
+  # prompt. Older turns are dropped in favor of the session summary line
+  # (kept simple/rule-based for v1 — see engine/prompt_builder.py).
+  history_turns_in_prompt: 6
+
+storage:
+  db_path: "insight_desktop/data/insight_app.db"
+
+prompts:
+  system_prompt_path: "insight_desktop/prompts/system_prompt.txt"
+
+logging:
+  log_dir: "insight_desktop/logs"
+  level: "info"          # debug | info | warn | error
+  # This is a personality-development tool running entirely on your own
+  # machine, so logging transcript text locally (not raw audio, ever) is
+  # on by default to help you see why Insight answered the way it did.
+  log_transcripts: true
