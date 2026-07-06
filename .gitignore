@@ -21,5 +21,12 @@ insight_desktop/tools/preview.png
 # Insight.app build artifacts (rebuilt on demand via packaging/build_app.sh)
 insight_desktop/dist/
 
+# Foundry local workspace data (bootstrap creates these locally)
+internal_tools/ogm_foundry/data/*.db
+internal_tools/ogm_foundry/data/*.jsonl
+internal_tools/ogm_foundry/data/vault/
+internal_tools/ogm_foundry/data/workspace.json
+internal_tools/ogm_control_center/data/*.db
+
 # OS cruft
 .DS_Store

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Offgrid Minds Foundry</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-kicker">Internal Operations</div>
+          <h1>OFFGRID MINDS FOUNDRY</h1>
+          <p class="brand-subtitle">Knowledge factory mission control for repository, coverage, intake, and curator workflows.</p>
+        </div>
+        <div class="topbar-meta">
+          <div class="meta-chip" id="health-status">Checking system health…</div>
+          <div class="meta-chip subtle" id="generated-at">—</div>
+          <button class="refresh-btn" id="refresh-btn" type="button">Refresh</button>
+        </div>
+      </header>
+
+      <section class="metrics-grid" id="metrics-grid">
+        <article class="metric-card">
+          <div class="metric-label">Knowledge Objects</div>
+          <div class="metric-value" id="metric-knowledge-objects">—</div>
+          <div class="metric-foot" id="metric-knowledge-foot">Repository summary</div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-label">Coverage Objects</div>
+          <div class="metric-value" id="metric-coverage-objects">—</div>
+          <div class="metric-foot" id="metric-coverage-foot">Coverage matrix</div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-label">Active Missions</div>
+          <div class="metric-value" id="metric-active-missions">—</div>
+          <div class="metric-foot" id="metric-missions-foot">Operational missions</div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-label">Candidate Queue</div>
+          <div class="metric-value" id="metric-candidate-queue">—</div>
+          <div class="metric-foot" id="metric-candidate-foot">Manual intake queue</div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-label">Vault Sources</div>
+          <div class="metric-value" id="metric-vault-sources">—</div>
+          <div class="metric-foot" id="metric-vault-foot">Raw source vault</div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-label">Curator Recs</div>
+          <div class="metric-value" id="metric-curator-recs">—</div>
+          <div class="metric-foot" id="metric-curator-foot">Curator-001 status</div>
+        </article>
+      </section>
+
+      <main class="dashboard-grid">
+        <section class="panel span-2">
+          <div class="panel-head">
+            <h2>Knowledge Repository</h2>
+            <span class="panel-tag">Real backend counts</span>
+          </div>
+          <div class="panel-body split">
+            <div>
+              <div class="stat-row"><span>Evidence records</span><strong id="repo-evidence">—</strong></div>
+              <div class="stat-row"><span>Relationships</span><strong id="repo-relationships">—</strong></div>
+              <div class="stat-row"><span>Coverage objects</span><strong id="repo-coverage-objects">—</strong></div>
+            </div>
+            <div>
+              <div class="subheading">Object status</div>
+              <div id="repo-status-list" class="pill-list"></div>
+              <div class="subheading">Categories</div>
+              <div id="repo-category-list" class="pill-list"></div>
+            </div>
+          </div>
+          <div class="empty-note" id="repo-message"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Coverage Summary</h2>
+            <span class="panel-tag">CRS matrix</span>
+          </div>
+          <div class="panel-body">
+            <div class="stat-row"><span>Complete</span><strong id="coverage-complete">—</strong></div>
+            <div class="stat-row"><span>Partial</span><strong id="coverage-partial">—</strong></div>
+            <div class="stat-row"><span>Not started</span><strong id="coverage-not-started">—</strong></div>
+            <div class="stat-row"><span>Average coverage</span><strong id="coverage-average">—</strong></div>
+            <div class="stat-row"><span>CRS requirements</span><strong id="coverage-crs-total">—</strong></div>
+            <div class="table-wrap" id="coverage-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Status</th>
+                    <th>Coverage</th>
+                    <th>CRS</th>
+                  </tr>
+                </thead>
+                <tbody id="coverage-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="empty-note" id="coverage-message"></div>
+        </section>
+
+        <section class="panel span-2">
+          <div class="panel-head">
+            <h2>CRS Requirements</h2>
+            <span class="panel-tag">Canonical Reference Standards</span>
+          </div>
+          <div class="panel-body">
+            <div id="crs-requirements-list" class="stack-list"></div>
+          </div>
+          <div class="empty-note" id="crs-message"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Active Missions</h2>
+            <span class="panel-tag">Operational records</span>
+          </div>
+          <div class="panel-body">
+            <div id="missions-list" class="stack-list"></div>
+          </div>
+          <div class="empty-note" id="missions-message"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Candidate Queue</h2>
+            <span class="panel-tag">Manual submissions</span>
+          </div>
+          <div class="panel-body">
+            <div id="candidate-status-list" class="pill-list"></div>
+            <div class="stat-row"><span>Pending review</span><strong id="candidate-pending">—</strong></div>
+            <div class="stat-row"><span>Recommended</span><strong id="candidate-recommended">—</strong></div>
+            <div class="stat-row"><span>Approved for intake</span><strong id="candidate-approved">—</strong></div>
+            <div class="stat-row"><span>Rejected</span><strong id="candidate-rejected">—</strong></div>
+            <div class="stat-row"><span>Duplicates flagged</span><strong id="candidate-duplicates">—</strong></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Status</th>
+                    <th>CRS Type</th>
+                    <th>Local File</th>
+                  </tr>
+                </thead>
+                <tbody id="candidate-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="empty-note" id="candidate-message"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Knowledge Vault</h2>
+            <span class="panel-tag">Raw source archive</span>
+          </div>
+          <div class="panel-body">
+            <div class="stat-row"><span>Approved sources</span><strong id="vault-sources">—</strong></div>
+            <div class="stat-row"><span>Revisions</span><strong id="vault-revisions">—</strong></div>
+            <div class="stat-row"><span>Archived bytes</span><strong id="vault-bytes">—</strong></div>
+          </div>
+          <div class="empty-note" id="vault-message"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Curator Status</h2>
+            <span class="panel-tag">Curator-001</span>
+          </div>
+          <div class="panel-body">
+            <div class="stat-row"><span>Agent</span><strong id="curator-agent">—</strong></div>
+            <div class="stat-row"><span>Scope</span><strong id="curator-scope">—</strong></div>
+            <div class="stat-row"><span>Mode</span><strong id="curator-mode">—</strong></div>
+            <div class="stat-row"><span>Recommendations</span><strong id="curator-recommendations">—</strong></div>
+            <div class="stat-row"><span>Human approvals</span><strong id="curator-approvals">—</strong></div>
+          </div>
+          <div class="empty-note" id="curator-message"></div>
+        </section>
+
+        <section class="panel span-2">
+          <div class="panel-head">
+            <h2>Recent Events</h2>
+            <span class="panel-tag">Audit and review trail</span>
+          </div>
+          <div class="panel-body">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Source</th>
+                    <th>Action</th>
+                    <th>Entity</th>
+                    <th>Actor</th>
+                  </tr>
+                </thead>
+                <tbody id="events-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="empty-note" id="events-message"></div>
+        </section>
+
+        <section class="panel span-2">
+          <div class="panel-head">
+            <h2>System Health</h2>
+            <span class="panel-tag">Backend availability</span>
+          </div>
+          <div class="panel-body split">
+            <div>
+              <div class="stat-row"><span>Intake DB</span><strong id="health-intake-db">—</strong></div>
+              <div class="stat-row"><span>Repository DB</span><strong id="health-repository-db">—</strong></div>
+              <div class="stat-row"><span>Vault root</span><strong id="health-vault-root">—</strong></div>
+              <div class="stat-row"><span>Uptime</span><strong id="health-uptime">—</strong></div>
+            </div>
+            <div>
+              <div class="subheading">Disabled capabilities</div>
+              <div id="health-capabilities" class="pill-list"></div>
+              <div class="subheading">Issues</div>
+              <div id="health-issues" class="stack-list"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
