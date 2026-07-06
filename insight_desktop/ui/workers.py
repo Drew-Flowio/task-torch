@@ -82,6 +82,44 @@ class PhotoAttachWorker(BaseEngineWorker):
             self.failed.emit(str(exc))
 
 
+class ConversationUtteranceWorker(BaseEngineWorker):
+    """Processes a completed VAD utterance in conversation mode."""
+
+    transcript_ready = Signal(str)
+
+    def run(self) -> None:
+        try:
+            result = self._engine.process_vad_utterance(
+                on_transcript=self.transcript_ready.emit,
+                on_token=self._emit_token,
+                on_state=self._emit_state,
+            )
+            self.finished_ok.emit(result)
+        except Exception as exc:  # noqa: BLE001
+            self.failed.emit(str(exc))
+
+
+class VoiceTextSendWorker(BaseEngineWorker):
+    """Send finalized transcript as text, then speak the reply (UI orchestration)."""
+
+    def __init__(self, engine: InsightEngine, text: str):
+        super().__init__()
+        self._engine = engine
+        self._text = text
+
+    def run(self) -> None:
+        try:
+            result = self._engine.send_text_message(
+                self._text, on_token=self._emit_token, on_state=self._emit_state,
+            )
+            if result.reply_text and not result.cancelled:
+                self._emit_state(AppState.SPEAKING)
+                self._engine.speak(result.reply_text)
+            self.finished_ok.emit(result)
+        except Exception as exc:  # noqa: BLE001
+            self.failed.emit(str(exc))
+
+
 class VoiceUtteranceWorker(BaseEngineWorker):
     """Runs `InsightEngine.send_voice_utterance()` on a background thread
     (transcription -> LLM -> TTS playback, all off the UI thread)."""

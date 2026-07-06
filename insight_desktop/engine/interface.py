@@ -160,9 +160,32 @@ class InsightEngine:
     # ------------------------------------------------------------------
 
     def start_recording(self, on_state: Callable[[AppState], None] | None = None) -> None:
+        if self._recorder.is_recording:
+            logger.warning("Duplicate recording start ignored.")
+            return
         self._recorder.start()
         if on_state:
             on_state(AppState.LISTENING)
+
+    def start_vad_listening(
+        self,
+        on_state: Callable[[AppState], None] | None = None,
+        silence_seconds: float = 1.2,
+        max_seconds: float = 12.0,
+    ) -> None:
+        """Start VAD-backed listening for conversation mode."""
+        if self._recorder.is_recording:
+            logger.warning("Duplicate VAD listen start ignored.")
+            return
+        self._recorder.start_vad(silence_seconds=silence_seconds, max_seconds=max_seconds)
+        if on_state:
+            on_state(AppState.LISTENING)
+
+    def vad_listen_finished(self) -> bool:
+        return self._recorder.vad_finished()
+
+    def is_recording(self) -> bool:
+        return self._recorder.is_recording
 
     def cancel_recording(self, on_state: Callable[[AppState], None] | None = None) -> None:
         self._recorder.cancel()
@@ -180,10 +203,38 @@ class InsightEngine:
         message uses, then speaks the reply. Returns None if the
         recording was too short/empty to transcribe (e.g. an accidental
         tap of the mic button)."""
+        return self._process_stopped_recording(
+            on_transcript=on_transcript,
+            on_token=on_token,
+            on_state=on_state,
+            speak=True,
+        )
+
+    def process_vad_utterance(
+        self,
+        on_transcript: Callable[[str], None] | None = None,
+        on_token: Callable[[str], None] | None = None,
+        on_state: Callable[[AppState], None] | None = None,
+    ) -> TurnResult | None:
+        """Finalize a VAD utterance (recording already ended) and respond."""
+        if not self._recorder.vad_finished() and self._recorder.is_recording:
+            return None
+        return self._process_stopped_recording(
+            on_transcript=on_transcript,
+            on_token=on_token,
+            on_state=on_state,
+            speak=True,
+        )
+
+    def _process_stopped_recording(
+        self,
+        on_transcript: Callable[[str], None] | None,
+        on_token: Callable[[str], None] | None,
+        on_state: Callable[[AppState], None] | None,
+        speak: bool,
+    ) -> TurnResult | None:
         audio_path = self._recorder.stop()
         if audio_path is None:
-            if on_state:
-                on_state(AppState.IDLE)
             return None
 
         if on_state:
@@ -191,11 +242,9 @@ class InsightEngine:
         try:
             transcript = self._stt.transcribe(audio_path)
         finally:
-            Path(audio_path).unlink(missing_ok=True)  # no raw audio retained on disk
+            Path(audio_path).unlink(missing_ok=True)
 
         if not transcript:
-            if on_state:
-                on_state(AppState.IDLE)
             return None
 
         if on_transcript:
@@ -205,13 +254,11 @@ class InsightEngine:
             transcript, source="voice", transcript=transcript, on_token=on_token, on_state=on_state,
         )
 
-        if not result.cancelled and result.reply_text and not self._cancel_event.is_set():
+        if speak and not result.cancelled and result.reply_text and not self._cancel_event.is_set():
             if on_state:
                 on_state(AppState.SPEAKING)
             self._tts.speak(prepare_for_speech(result.reply_text))
 
-        if on_state:
-            on_state(AppState.IDLE)
         return result
 
     def speak(self, text: str, on_state: Callable[[AppState], None] | None = None) -> None:

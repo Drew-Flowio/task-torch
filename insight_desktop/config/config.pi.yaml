@@ -1,0 +1,57 @@
+# Raspberry Pi 5 touch UI — Offgrid Minds field device profile.
+# Run: python insight_desktop/app/main.py --config insight_desktop/config/config.pi.yaml
+
+engine:
+  mock_mode: false
+
+ui:
+  mode: touch
+  screen_inches: 7        # use 5 for smaller displays
+  fullscreen: true
+  brand_name: "Offgrid Minds"
+
+models:
+  llm_model_path: "models/Phi-3.5-mini-instruct-Q4_K_M.gguf"
+  llm_n_ctx: 4096
+  llm_n_threads: 4
+  llm_max_tokens: 256
+  llm_temperature: 0.55
+  llm_top_p: 0.92
+
+  whisper_cli_path: "vendor/whisper.cpp/build/bin/whisper-cli"
+  whisper_model_path: "vendor/whisper.cpp/models/ggml-base.en.bin"
+  whisper_threads: 4
+
+  tts_voice_model_path: "models/piper-voices/en/en_US/ryan/medium/en_US-ryan-medium.onnx"
+  tts_length_scale: 0.91
+  tts_noise_scale: 0.78
+  tts_noise_w: 0.88
+
+  vision_enabled: true
+  mtmd_cli_path: "vendor/llama.cpp/build/bin/llama-mtmd-cli"
+  vision_model_path: "models/SmolVLM-500M-Instruct/SmolVLM-500M-Instruct-Q8_0.gguf"
+  vision_mmproj_path: "models/SmolVLM-500M-Instruct/mmproj-SmolVLM-500M-Instruct-Q8_0.gguf"
+  vision_n_predict: 128
+  vision_temperature: 0.1
+  vision_gpu_layers: 0
+
+audio:
+  sample_rate: 16000
+  max_recording_seconds: 20
+  input_device: null
+  output_device: null
+
+interaction:
+  assistant_name: "Offgrid Minds"
+  history_turns_in_prompt: 8
+
+storage:
+  db_path: "insight_desktop/data/insight_app.db"
+
+prompts:
+  system_prompt_path: "insight_desktop/prompts/system_prompt.txt"
+
+logging:
+  log_dir: "insight_desktop/logs"
+  level: "info"
+  log_transcripts: true

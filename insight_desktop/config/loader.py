@@ -16,6 +16,14 @@ DEFAULT_CONFIG_PATH = INSIGHT_DESKTOP_ROOT / "config" / "config.yaml"
 
 
 @dataclass(frozen=True)
+class UiConfig:
+    mode: str = "desktop"  # desktop | touch
+    screen_inches: int = 7
+    fullscreen: bool = False
+    brand_name: str = "Offgrid Minds"
+
+
+@dataclass(frozen=True)
 class ModelsConfig:
     llm_model_path: str
     llm_n_ctx: int
@@ -79,6 +87,7 @@ class AppConfig:
     storage: StorageConfig
     prompts: PromptsConfig
     logging: LoggingConfig
+    ui: UiConfig
     repo_root: Path = field(default=REPO_ROOT)
 
     def resolve(self, relative_path: str) -> str:
@@ -114,6 +123,14 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> AppConfig:
         vision_gpu_layers=int(models_raw.get("vision_gpu_layers", 0)),
     )
 
+    ui_raw = raw.get("ui", {})
+    ui = UiConfig(
+        mode=str(ui_raw.get("mode", "desktop")),
+        screen_inches=int(ui_raw.get("screen_inches", 7)),
+        fullscreen=bool(ui_raw.get("fullscreen", False)),
+        brand_name=str(ui_raw.get("brand_name", "Insight")),
+    )
+
     return AppConfig(
         mock_mode=bool(raw["engine"]["mock_mode"]),
         models=models,
@@ -122,4 +139,5 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> AppConfig:
         storage=StorageConfig(**raw["storage"]),
         prompts=PromptsConfig(**raw["prompts"]),
         logging=LoggingConfig(**raw["logging"]),
+        ui=ui,
     )

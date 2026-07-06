@@ -8,6 +8,12 @@
 engine:
   mock_mode: false
 
+ui:
+  mode: desktop
+  screen_inches: 7
+  fullscreen: false
+  brand_name: "Insight"
+
 models:
   llm_model_path: "models/Phi-3.5-mini-instruct-Q4_K_M.gguf"
   llm_n_ctx: 4096

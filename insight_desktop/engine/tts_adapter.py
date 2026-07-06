@@ -45,7 +45,7 @@ class TtsAdapter:
         self._syn_config = SynthesisConfig(
             length_scale=config.length_scale,
             noise_scale=config.noise_scale,
-            noise_w=config.noise_w,
+            noise_w_scale=config.noise_w,
         )
 
     def speak(self, text: str) -> None:

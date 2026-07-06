@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Offgrid Minds Agent Control Center</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="eyebrow">Offgrid Minds</span>
+        <h1>Agent Control Center</h1>
+      </div>
+      <nav id="nav">
+        <button data-page="dashboard" class="active">Dashboard</button>
+        <button data-page="missions">Missions</button>
+        <button data-page="mission-detail">Mission Detail</button>
+        <button data-page="source-review">Source Review</button>
+        <button data-page="coverage">Coverage</button>
+        <button data-page="knowledge-debt">Knowledge Debt</button>
+        <button data-page="logs">Logs / Audit Trail</button>
+        <button data-page="settings">Settings</button>
+      </nav>
+      <div class="guardrails">
+        <strong>MVP Guardrails</strong>
+        <span>No autonomous crawling</span>
+        <span>No autonomous publishing</span>
+        <span>No pack compilation</span>
+        <span>Human approval required</span>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Mission Control</p>
+          <h2 id="page-title">Dashboard</h2>
+        </div>
+        <button id="refresh-button">Refresh</button>
+      </header>
+
+      <section id="notice" class="notice hidden"></section>
+
+      <section id="page-dashboard" class="page active">
+        <div class="cards" id="dashboard-cards"></div>
+        <div class="grid two">
+          <article class="panel">
+            <h3>CKO Recommendations</h3>
+            <div id="cko-recommendations" class="stack"></div>
+            <form id="cko-form" class="inline-form">
+              <input name="message" placeholder="Add manual CKO recommendation" required />
+              <button>Add</button>
+            </form>
+          </article>
+          <article class="panel">
+            <h3>Recent Mission Events</h3>
+            <div id="recent-events" class="stack"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="page-missions" class="page">
+        <div class="grid two">
+          <article class="panel">
+            <h3>Create Mission</h3>
+            <form id="mission-form" class="form-grid">
+              <label>Mission Name<input name="name" required /></label>
+              <label>Target Expert Pack<input name="target_pack" value="ogm.pack.north-american-outdoor" required /></label>
+              <label>Priority
+                <select name="priority">
+                  <option>critical</option>
+                  <option>high</option>
+                  <option selected>medium</option>
+                  <option>low</option>
+                  <option>backlog</option>
+                </select>
+              </label>
+              <label>Status
+                <select name="status">
+                  <option selected>created</option>
+                  <option>awaiting_approval</option>
+                  <option>approved</option>
+                  <option>research</option>
+                  <option>source_vetting</option>
+                  <option>acquisition</option>
+                  <option>ocr</option>
+                  <option>knowledge_engineering</option>
+                  <option>indexing</option>
+                  <option>validation</option>
+                  <option>compilation</option>
+                  <option>human_review</option>
+                  <option>published</option>
+                  <option>blocked</option>
+                  <option>paused</option>
+                  <option>cancelled</option>
+                </select>
+              </label>
+              <label>Human Reviewer<input name="human_reviewer" placeholder="reviewer:local" /></label>
+              <label>Coverage Goal<input name="coverage_goal" placeholder="Navigation >= 95%" /></label>
+              <label>Allowed Source Types<textarea name="allowed_source_types" placeholder="government_publication, university_extension"></textarea></label>
+              <label>Approved Domains<textarea name="approved_domains" placeholder="usgs.gov, noaa.gov"></textarea></label>
+              <label>Completion Criteria<textarea name="completion_criteria"></textarea></label>
+              <label>Success Metrics<textarea name="success_metrics"></textarea></label>
+              <label>Knowledge Objects Expected<textarea name="knowledge_objects_expected"></textarea></label>
+              <label>Required Citations<textarea name="required_citations"></textarea></label>
+              <label>Safety Requirements<textarea name="safety_requirements"></textarea></label>
+              <label>CKO Recommendation<textarea name="cko_recommendation"></textarea></label>
+              <button>Create Mission</button>
+            </form>
+          </article>
+          <article class="panel">
+            <h3>Missions</h3>
+            <div id="missions-list" class="stack"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="page-mission-detail" class="page">
+        <article class="panel">
+          <h3>Mission Detail</h3>
+          <p class="muted">Select a mission from the Missions page or choose one below.</p>
+          <select id="mission-selector"></select>
+          <div id="mission-detail" class="detail"></div>
+        </article>
+      </section>
+
+      <section id="page-source-review" class="page">
+        <div class="grid two">
+          <article class="panel">
+            <h3>Add Source Candidate</h3>
+            <form id="source-form" class="form-grid">
+              <label>Mission<select name="mission_id" id="source-mission-select"></select></label>
+              <label>Title<input name="title" required /></label>
+              <label>URL or Local Path<input name="url_or_path" required /></label>
+              <label>Source Type<input name="source_type" value="government_publication" /></label>
+              <label>Source Class
+                <select name="source_class">
+                  <option>Official Manufacturer</option>
+                  <option selected>Government</option>
+                  <option>University</option>
+                  <option>Professional Organization</option>
+                  <option>Industry Standard</option>
+                  <option>Commercial Manual</option>
+                  <option>Public Domain Book</option>
+                  <option>Community Source</option>
+                  <option>Unknown Source</option>
+                </select>
+              </label>
+              <label>Quality Score<input name="quality_score" type="number" min="0" max="1" step="0.01" value="0.88" /></label>
+              <label>License Status<input name="license_status" value="needs_review" /></label>
+              <label>Relevance Notes<textarea name="relevance_notes"></textarea></label>
+              <button>Add Candidate</button>
+            </form>
+          </article>
+          <article class="panel">
+            <h3>Source Candidates</h3>
+            <div id="sources-list" class="stack"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="page-coverage" class="page">
+        <div class="grid two">
+          <article class="panel">
+            <h3>Add Coverage Item</h3>
+            <form id="coverage-form" class="form-grid">
+              <label>Pack ID<input name="pack_id" value="ogm.pack.north-american-outdoor" required /></label>
+              <label>Name<input name="name" required /></label>
+              <label>Current Percent<input name="current_percent" type="number" min="0" max="100" step="1" value="0" /></label>
+              <label>Target Percent<input name="target_percent" type="number" min="0" max="100" step="1" value="95" /></label>
+              <label>Notes<textarea name="notes"></textarea></label>
+              <button>Add Coverage</button>
+            </form>
+          </article>
+          <article class="panel">
+            <h3>Coverage</h3>
+            <div id="coverage-list" class="stack"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="page-knowledge-debt" class="page">
+        <div class="grid two">
+          <article class="panel">
+            <h3>Add Knowledge Debt</h3>
+            <form id="debt-form" class="form-grid">
+              <label>Pack ID<input name="pack_id" value="ogm.pack.north-american-outdoor" required /></label>
+              <label>Debt Type<input name="debt_type" value="low_coverage" required /></label>
+              <label>Severity
+                <select name="severity">
+                  <option>critical</option>
+                  <option selected>high</option>
+                  <option>medium</option>
+                  <option>low</option>
+                </select>
+              </label>
+              <label>Description<textarea name="description" required></textarea></label>
+              <label>Recommended Action<textarea name="recommended_action"></textarea></label>
+              <button>Add Debt</button>
+            </form>
+          </article>
+          <article class="panel">
+            <h3>Knowledge Debt</h3>
+            <div id="debt-list" class="stack"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="page-logs" class="page">
+        <div class="grid two">
+          <article class="panel">
+            <h3>Add Manual Log</h3>
+            <form id="log-form" class="form-grid">
+              <label>Mission<select name="mission_id" id="log-mission-select"></select></label>
+              <label>Agent / Actor<input name="agent_name" value="CKO" /></label>
+              <label>Log Type<input name="log_type" value="note" /></label>
+              <label>Message<textarea name="message" required></textarea></label>
+              <button>Add Log</button>
+            </form>
+          </article>
+          <article class="panel">
+            <h3>Audit Trail</h3>
+            <div id="audit-list" class="stack"></div>
+          </article>
+        </div>
+        <article class="panel">
+          <h3>Agent Logs</h3>
+          <div id="agent-logs-list" class="stack"></div>
+        </article>
+      </section>
+
+      <section id="page-settings" class="page">
+        <article class="panel">
+          <h3>Settings</h3>
+          <div id="settings-detail" class="detail"></div>
+        </article>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

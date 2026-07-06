@@ -21,6 +21,15 @@ insight_desktop/tools/preview.png
 # Insight.app build artifacts (rebuilt on demand via packaging/build_app.sh)
 insight_desktop/dist/
 
+# Local candidate CSV working copies (template lives in internal_tools/ogm_foundry/templates/)
+my-candidates.csv
+
+# Legacy control center local SQLite (code is in control_center/ and internal_tools/ogm_control_center/)
+control_center/data/*.sqlite3
+
+# iOS app local Python venv for XTTS tooling (rebuilt via insight_ios/setup_xtts.sh)
+insight_ios/.venv-xtts/
+
 # Foundry local workspace data (bootstrap creates these locally)
 internal_tools/ogm_foundry/data/*.db
 internal_tools/ogm_foundry/data/*.jsonl
